@@ -1,3 +1,4 @@
+mod auth;
 mod cache;
 mod callable;
 mod coercion;
@@ -26,6 +27,12 @@ mod _native {
     use litellm_host_python::{ForkedAfterNativeRuntimeStarted, ProcessReservedForForking};
     use pyo3::{prelude::*, types::PyModule};
 
+    #[pymodule_export]
+    use crate::auth::{
+        auth_allowed_routes_grant, auth_first_denied_route, auth_jwt_team_routes_grant,
+        auth_managed_agent_route_allowed, auth_managed_route, auth_route_matches_denied,
+        auth_route_matches_prefix, auth_route_matches_wildcard,
+    };
     #[pymodule_export]
     use crate::db::{NativeDatabase, NativeDatabaseFailure};
     #[cfg(feature = "panic-test")]
@@ -208,6 +215,14 @@ mod tests {
                 "reserve_process_for_forking",
                 "unsupported_tls_settings",
                 "NativeS3Log",
+                "auth_allowed_routes_grant",
+                "auth_first_denied_route",
+                "auth_jwt_team_routes_grant",
+                "auth_managed_agent_route_allowed",
+                "auth_managed_route",
+                "auth_route_matches_denied",
+                "auth_route_matches_prefix",
+                "auth_route_matches_wildcard",
             ];
             #[cfg(feature = "huggingface")]
             expected.push("HuggingFaceEncoding");

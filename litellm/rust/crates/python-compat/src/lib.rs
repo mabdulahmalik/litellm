@@ -12,6 +12,7 @@
 //! | [`pickle`] | `pickle.loads(data)` and `pickle.dumps(value)` for plain data |
 //! | [`truthy`] | `bool(value)` |
 //! | [`number`] | `int(text)`, `float(text)`, and `int(seconds)` as a `Duration` |
+//! | [`lenient`] | how Python reads an unvalidated config value: `value is True`, or a value of the expected shape |
 //!
 //! [`Value`] is the closed data model these formats share. Live Python objects
 //! (descriptors, `__bool__`, `__str__`, callbacks) are out of scope: those belong to the
@@ -26,6 +27,7 @@
 
 mod error;
 pub mod json;
+pub mod lenient;
 pub mod literal;
 pub mod number;
 pub mod pickle;
