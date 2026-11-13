@@ -16,6 +16,12 @@ impl Entries {
             .iter()
             .any(|template| template.matches(route))
     }
+
+    fn matches_compiled(&self, route: &str) -> bool {
+        self.templates
+            .iter()
+            .any(|template| template.matches_compiled(route))
+    }
 }
 
 /// `LiteLLMRoutes` by member name, which the host hands in with its settings.
@@ -108,13 +114,14 @@ impl RouteGroups {
             .is_some_and(|entries| entries.matches(route))
     }
 
-    /// `_allowed_routes_check` over an operator's list: each entry is a `LiteLLMRoutes` group name,
+    /// `_allowed_routes_check` over an operator's list: each entry is a `LiteLLMRoutes` group name
+    /// whose templates match as starlette `compile_path` compiles them,
     /// an exact route, or a prefix ending in `*`.
     pub fn is_route_allowed<S: AsRef<str>>(&self, route: &str, allowed_routes: &[S]) -> bool {
         allowed_routes
             .iter()
             .any(|allowed| match self.0.get(allowed.as_ref()) {
-                Some(entries) => entries.matches(route),
+                Some(entries) => entries.matches_compiled(route),
                 None => matches_wildcard(route, allowed.as_ref()),
             })
     }
@@ -169,6 +176,21 @@ mod tests {
     #[case::wildcard_prefix("/scim/v2/*", "/scim/v2/Users/1", true)]
     #[case::wildcard_other("/scim/v2/*", "/scim/v3", false)]
     #[case::unknown_name_is_exact("not_a_group", "/not_a_group", false)]
+    #[case::path_swallows_a_colon_like_compile_path(
+        "google_routes",
+        "/v1beta/models/a:b:generateContent",
+        true
+    )]
+    #[case::path_may_be_empty_like_compile_path(
+        "google_routes",
+        "/v1beta/models/:generateContent",
+        true
+    )]
+    #[case::path_stops_at_a_newline_like_compile_path(
+        "google_routes",
+        "/v1beta/models/a\nb:generateContent",
+        false
+    )]
     fn allowed_routes(#[case] allowed: &str, #[case] route: &str, #[case] expected: bool) {
         assert_eq!(route_groups().is_route_allowed(route, &[allowed]), expected);
     }

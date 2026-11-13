@@ -5,6 +5,7 @@
 //! |---|---|
 //! | [`IsTrue`] | `value is True` |
 //! | [`Truthy`] | `bool(value)` |
+//! | [`StrBool`] | a bool as is, or `str_to_bool(text) is True` for text |
 //! | [`Lenient`] | the value when it has the expected shape, otherwise ignored |
 //!
 //! The bool rules are `serde_with` adapters, used as `#[serde_as(as = "IsTrue")]` on a `bool`.
@@ -106,6 +107,52 @@ impl<'de> Visitor<'de> for TruthyVisitor {
         let non_empty = map.next_entry::<IgnoredAny, IgnoredAny>()?.is_some();
         while map.next_entry::<IgnoredAny, IgnoredAny>()?.is_some() {}
         Ok(non_empty)
+    }
+}
+
+fn python_strip(value: &str) -> &str {
+    value.trim_matches(|character: char| {
+        character.is_whitespace() || matches!(character, '\u{1c}'..='\u{1f}')
+    })
+}
+
+/// `str_to_bool`: true or false spelled in any case, after Python's `str.strip()`.
+pub fn parse_str_bool(value: &str) -> Option<bool> {
+    let token = python_strip(value);
+    if token.eq_ignore_ascii_case("true") {
+        return Some(true);
+    }
+    token.eq_ignore_ascii_case("false").then_some(false)
+}
+
+/// Pydantic's lax `bool` parsing of text.
+pub fn parse_pydantic_bool(value: &str) -> Option<bool> {
+    match python_strip(value).to_ascii_lowercase().as_str() {
+        "1" | "on" | "t" | "true" | "y" | "yes" => Some(true),
+        "0" | "off" | "f" | "false" | "n" | "no" => Some(false),
+        _ => None,
+    }
+}
+
+/// A flag the proxy also accepts as text: a bool as is, text that [`parse_str_bool`] reads as true,
+/// and anything else false.
+pub struct StrBool;
+
+impl<'de> DeserializeAs<'de, bool> for StrBool {
+    fn deserialize_as<D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Bool(bool),
+            Text(String),
+            Other(IgnoredAny),
+        }
+
+        Ok(match Raw::deserialize(deserializer)? {
+            Raw::Bool(flag) => flag,
+            Raw::Text(text) => parse_str_bool(&text) == Some(true),
+            Raw::Other(_) => false,
+        })
     }
 }
 

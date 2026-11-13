@@ -1,4 +1,6 @@
-use litellm_python_compat::lenient::{IsTrue, Lenient, Truthy};
+use litellm_python_compat::lenient::{
+    IsTrue, Lenient, StrBool, Truthy, parse_pydantic_bool, parse_str_bool,
+};
 use rstest::rstest;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -69,4 +71,63 @@ fn items_of_a_malformed_list_are_none(
     #[case] expected: &[&str],
 ) {
     assert_eq!(list.items(), expected);
+}
+
+#[rstest]
+#[case::trimmed_true(" True ", Some(true))]
+#[case::control_whitespace_true("\u{1c}TRUE\u{1f}", Some(true))]
+#[case::unicode_whitespace_false("\u{a0}False\u{2003}", Some(false))]
+#[case::zero_width_space("true\u{200b}", None)]
+#[case::yes("yes", None)]
+#[case::one("1", None)]
+#[case::empty("", None)]
+#[case::unknown("unknown", None)]
+fn boolean_tokens_follow_python_string_trimming_without_redis_tokens(
+    #[case] input: &str,
+    #[case] expected: Option<bool>,
+) {
+    assert_eq!(parse_str_bool(input), expected, "{input:?}");
+}
+
+#[rstest]
+#[case::yes(" YES ", Some(true))]
+#[case::on("On", Some(true))]
+#[case::one("1", Some(true))]
+#[case::t("t", Some(true))]
+#[case::y("y", Some(true))]
+#[case::control_whitespace_true("\u{1c}TRUE\u{1f}", Some(true))]
+#[case::no("No", Some(false))]
+#[case::off("OFF", Some(false))]
+#[case::zero("0", Some(false))]
+#[case::f("F", Some(false))]
+#[case::n("n", Some(false))]
+#[case::false_word("false", Some(false))]
+#[case::two("2", None)]
+#[case::empty("", None)]
+#[case::unknown("maybe", None)]
+fn boolean_words_follow_pydantic_lax_bool_parsing(
+    #[case] input: &str,
+    #[case] expected: Option<bool>,
+) {
+    assert_eq!(parse_pydantic_bool(input), expected, "{input:?}");
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct TextFlag(#[serde_as(as = "StrBool")] bool);
+
+#[rstest]
+#[case::flag(json!(true), true)]
+#[case::false_flag(json!(false), false)]
+#[case::true_text(json!(" True "), true)]
+#[case::python_stripped_true_text(json!("\u{1c}true"), true)]
+#[case::false_text(json!("false"), false)]
+#[case::other_text(json!("yes"), false)]
+#[case::number(json!(1), false)]
+#[case::null(json!(null), false)]
+fn str_bool_is_true_only_for_true(#[case] value: Value, #[case] expected: bool) {
+    assert_eq!(
+        serde_json::from_value::<TextFlag>(value).unwrap().0,
+        expected
+    );
 }

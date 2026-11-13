@@ -17,6 +17,12 @@ impl Template {
     pub(super) fn matches(&self, route: &str) -> bool {
         matches_parts(self.0.parts(), route)
     }
+
+    /// The route matches the regex starlette's `compile_path` builds from the template, the
+    /// matcher `_allowed_routes_check` reads route groups with.
+    pub(super) fn matches_compiled(&self, route: &str) -> bool {
+        self.0.matches(route)
+    }
 }
 
 fn matches_parts(parts: &[TemplatePart], route: &str) -> bool {

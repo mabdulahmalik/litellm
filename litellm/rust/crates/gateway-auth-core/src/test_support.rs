@@ -56,6 +56,7 @@ pub fn route_table() -> Vec<(String, Vec<String>)> {
             ],
         ),
         group("info_routes", &["/key/info", "/user/info", "/team/list"]),
+        group("management_routes", &["/key/generate"]),
         group(
             "mcp_routes",
             &["/mcp/tools/list", "/mcp/tools/call", "/token"],
@@ -66,5 +67,9 @@ pub fn route_table() -> Vec<(String, Vec<String>)> {
         ),
         group("agent_inference_routes", &["/a2a/{agent_id}/message/send"]),
         group("spend_tracking_routes", &["/spend/logs"]),
+        group(
+            "google_routes",
+            &["/v1beta/models/{model_name:path}:generateContent"],
+        ),
     ]
 }
